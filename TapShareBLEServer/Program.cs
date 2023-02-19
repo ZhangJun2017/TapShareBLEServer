@@ -1,7 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using Microsoft.Toolkit.Uwp.Notifications;
+using System;
+using System.Threading;
 using System.Windows.Forms;
 
 namespace TapShareBLEServer
@@ -16,6 +15,13 @@ namespace TapShareBLEServer
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            ToastNotificationManagerCompat.OnActivated += toastArgs =>
+            {
+                Thread thread = new Thread(() => Form1.handleToastEvent(toastArgs.Argument));
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
+                //form.handleToastEvent(toastArgs.Argument);
+            };
             Application.Run(new Form1());
         }
     }

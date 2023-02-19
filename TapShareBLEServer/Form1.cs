@@ -1,9 +1,17 @@
-﻿using System;
+﻿using Microsoft.Toolkit.Uwp.Notifications;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using System.Xml;
 using Windows.Devices.Bluetooth;
 using Windows.Devices.Bluetooth.GenericAttributeProfile;
 using Windows.Storage.Streams;
+using Windows.UI.Notifications;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TapShareBLEServer
 {
@@ -17,7 +25,13 @@ namespace TapShareBLEServer
         {
             InitializeComponent();
         }
-
+        public static void handleToastEvent(string args)
+        {
+            if (args.StartsWith("copy-"))
+            {
+                Clipboard.SetText(File.ReadAllText("./" + args.Substring(5)));
+            }
+        }
         private void button1_Click(object sender, EventArgs e)
         {
             initBLEServer();
@@ -28,13 +42,29 @@ namespace TapShareBLEServer
         }
         public void raiseMessageDialog(string message)
         {
+            long currentTicks = DateTime.Now.Ticks;
+            File.WriteAllText("./" + currentTicks.ToString(), message);
             if (message.StartsWith("http://") || message.StartsWith("https://"))
             {
                 Process.Start(message);
             }
+            else if (Regex.Match(message, "(av[1-9]\\d*)|(BV1[1-9A-NP-Za-km-z]{9})").Success)
+            {
+                Process.Start("https://b23.tv/" + message);
+            }
             else
             {
-                MessageBox.Show(new Form { TopMost = true }, message, "Incoming message", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                //MessageBox.Show(new Form { TopMost = true }, message, "Incoming message", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                ToastContentBuilder builder = new ToastContentBuilder()
+                .AddText("新投送消息")
+                    .AddText(new String(message.Where(ch => XmlConvert.IsXmlChar(ch)).ToArray()))
+                    .AddButton("复制", ToastActivationType.Background, "copy-" + currentTicks)
+                    .AddButton("完成", ToastActivationType.Background, "")
+                    .SetToastScenario(ToastScenario.Reminder);
+                var toastNotif = new ToastNotification(builder.GetToastContent().GetXml());
+                toastNotif.Tag = "incoming-message";
+                toastNotif.Group = "tapshare-server-common-notification";
+                ToastNotificationManagerCompat.CreateToastNotifier().Show(toastNotif);
             }
         }
         private async void initBLEServer()
